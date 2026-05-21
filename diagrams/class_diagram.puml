@@ -1,0 +1,250 @@
+@startuml ClassDiagram_TaskMasterPro
+title TaskMaster Pro - Class Diagram
+
+skinparam ClassBackgroundColor #f8f8ff
+skinparam ClassBorderColor #336699
+skinparam ArrowColor #336699
+
+' =====================
+' Enums
+' =====================
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Status {
+  NEW
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskType {
+  TASK
+  BUG
+}
+
+' =====================
+' Model Layer
+' =====================
+package "Model" #EEF5FF {
+
+  class User {
+    - id: String
+    - username: String
+    - passwordHash: String
+    - domain: String
+    - failedAttempts: int
+    - lockedUntil: LocalDateTime
+    - displayPreferences: Map<String,String>
+    + getUsername(): String
+    + getPasswordHash(): String
+    + getDomain(): String
+    + isLocked(): boolean
+    + lockFor(minutes: int): void
+    + incrementFailedAttempts(): void
+    + resetFailedAttempts(): void
+    + getDisplayPreferences(): Map<String,String>
+    + setPreference(key: String, value: String): void
+  }
+
+  class Task {
+    - id: String
+    - title: String
+    - description: String
+    - priority: Priority
+    - status: Status
+    - type: TaskType
+    - dueDate: LocalDate
+    - domain: String
+    - createdBy: String
+    - createdAt: LocalDateTime
+    - closedAt: LocalDateTime
+    + getId(): String
+    + getTitle(): String
+    + setTitle(title: String): void
+    + getDescription(): String
+    + setDescription(desc: String): void
+    + getPriority(): Priority
+    + setPriority(p: Priority): void
+    + getStatus(): Status
+    + setStatus(s: Status): void
+    + getDueDate(): LocalDate
+    + isDueSoon(): boolean
+    + close(): void
+    + getDomain(): String
+    + getCreatedBy(): String
+  }
+
+  class Bug {
+    - stepsToReproduce: String
+    + getStepsToReproduce(): String
+    + setStepsToReproduce(steps: String): void
+  }
+}
+
+' =====================
+' Service Layer
+' =====================
+package "Service" #EEFFF0 {
+
+  class AuthService {
+    - userRepository: UserRepository
+    - session: Session
+    + authenticate(username: String, password: String): AuthResult
+    + register(username: String, password: String, domain: String): boolean
+    + logout(): void
+    - hashPassword(password: String): String
+    - verifyPassword(input: String, hash: String): boolean
+  }
+
+  class TaskService {
+    - taskRepository: TaskRepository
+    - session: Session
+    + createTask(title: String, desc: String, type: TaskType, priority: Priority, dueDate: LocalDate): Task
+    + updateTask(id: String, title: String, desc: String, priority: Priority): Task
+    + deleteTask(id: String): boolean
+    + updateStatus(id: String, newStatus: Status): Task
+    + getTasksByDomain(): List<Task>
+    + searchTasks(query: String): List<Task>
+    + filterByStatus(status: Status): List<Task>
+    + sortByDueDate(): List<Task>
+  }
+
+  class DashboardService {
+    - taskRepository: TaskRepository
+    - session: Session
+    + getOpenCount(): int
+    + getInProgressCount(): int
+    + getCompletedLast30Days(): int
+    + getUrgentTasks(): List<Task>
+  }
+
+  class ReportExporter {
+    - taskRepository: TaskRepository
+    + exportToTxt(tasks: List<Task>): String
+    + writeReportFile(filename: String): boolean
+  }
+
+  class Validator {
+    + validateTitle(title: String): boolean
+    + validateDueDate(dateStr: String): boolean
+    + validatePassword(password: String): boolean
+    + validateUsername(username: String): boolean
+  }
+
+  class SearchFilter {
+    + filterByText(tasks: List<Task>, query: String): List<Task>
+    + filterByStatus(tasks: List<Task>, status: Status): List<Task>
+    + sortAscendingByDueDate(tasks: List<Task>): List<Task>
+    + sortByPriority(tasks: List<Task>): List<Task>
+  }
+}
+
+' =====================
+' Repository Layer
+' =====================
+package "Repository" #FFF8EE {
+
+  class UserRepository {
+    - fileStorage: FileStorage
+    + findByUsername(username: String): User
+    + save(user: User): boolean
+    + delete(username: String): boolean
+    + exists(username: String): boolean
+  }
+
+  class TaskRepository {
+    - fileStorage: FileStorage
+    + findById(id: String): Task
+    + findByDomain(domain: String): List<Task>
+    + save(task: Task): boolean
+    + delete(id: String): boolean
+    + findAll(): List<Task>
+    + generateId(): String
+  }
+}
+
+' =====================
+' Storage Layer
+' =====================
+package "Storage" #FFF0F0 {
+
+  class FileStorage {
+    - dataFilePath: String
+    + readFromFile(): String
+    + writeToFile(data: String): boolean
+    + retryWrite(data: String, maxAttempts: int): boolean
+  }
+}
+
+' =====================
+' UI Layer
+' =====================
+package "UI" #F8F0FF {
+
+  class UIController {
+    - authService: AuthService
+    - taskService: TaskService
+    - dashboardService: DashboardService
+    - session: Session
+    + displayLoginMenu(): void
+    + displayTaskList(): void
+    + displayCreateTaskForm(): void
+    + displayDashboard(): void
+    + displaySearchResults(query: String): void
+    + handleUserInput(input: String): void
+    + showConfirmationDialog(message: String): boolean
+    + showError(code: String, message: String): void
+  }
+
+  class Session {
+    - currentUser: User
+    - sortPreference: String
+    - filterPreference: String
+    + getCurrentUser(): User
+    + isLoggedIn(): boolean
+    + setPreference(key: String, value: String): void
+    + getPreference(key: String): String
+    + clear(): void
+  }
+}
+
+' =====================
+' Relationships
+' =====================
+
+' Inheritance (Generalization - חץ ריק למעלה)
+Bug --|> Task
+
+' Composition - Task מכיל enum אחד בדיוק
+Task "1" *-- "1" Priority
+Task "1" *-- "1" Status
+Task "1" *-- "1" TaskType
+
+' Service -> Repository (שירות אחד משתמש ב-Repository אחד)
+AuthService "1" --> "1" UserRepository
+AuthService "1" --> "1" Session
+TaskService "1" --> "1" TaskRepository
+TaskService "1" --> "1" Session
+TaskService "1" --> "1" SearchFilter
+DashboardService "1" --> "1" TaskRepository
+DashboardService "1" --> "1" Session
+ReportExporter "1" --> "1" TaskRepository
+
+' Repository -> Storage (כל Repository משתמש ב-FileStorage אחד)
+UserRepository "1" --> "1" FileStorage
+TaskRepository "1" --> "1" FileStorage
+
+' UI -> Service (UIController אחד מנהל שירותים)
+UIController "1" --> "1" AuthService
+UIController "1" --> "1" TaskService
+UIController "1" --> "1" DashboardService
+UIController "1" --> "1" Session
+
+' Validator - מספר שירותים משתמשים בו
+TaskService "1..*" --> "1" Validator
+AuthService "1..*" --> "1" Validator
+
+@enduml

@@ -1,0 +1,117 @@
+@startuml Activity_AllProcesses_EN
+title TaskMaster Pro - Activity Diagram\nThree Business Processes
+
+skinparam ActivityBackgroundColor #ffffff
+skinparam ActivityBorderColor #336699
+skinparam ActivityArrowColor #336699
+skinparam PartitionBackgroundColor #fafafa
+skinparam PartitionBorderColor #666666
+skinparam PartitionFontSize 13
+skinparam PartitionFontStyle bold
+
+start
+
+fork
+
+  partition "Process 1: Registration & Login" {
+    :Display main menu;
+    if (New user?) then ([yes])
+      :Enter username, password and domain;
+      if (Validation passed?\nunique name + password >= 8 chars) then ([yes])
+        :Hash password;
+        :Save user to local file;
+        :Display success message;
+        detach
+      else ([no])
+        :Display validation error;
+        detach
+      endif
+    else ([no - existing user])
+      :Enter username and password;
+      if (Credentials valid?) then ([yes])
+        :Reset failed attempts counter;
+        :Load session and tasks by domain;
+        :Display dashboard + task list;
+      else ([no])
+        :Increment failed attempts counter;
+        if (3 failed attempts?) then ([yes])
+          :Lock account for 15 minutes;
+          :Display lockout message;
+          detach
+        else ([no])
+          :Display error - try again;
+          detach
+        endif
+      endif
+    endif
+  }
+
+fork again
+
+  partition "Process 2: Create Task / Bug" {
+    :Select "Create New Task" from menu;
+    :Enter title (up to 50 chars) and description;
+    :Select type: Task / Bug;
+    if (Type = Bug?) then ([yes])
+      :Enter Steps to Reproduce\n(mandatory field);
+      if (Field filled?) then ([no])
+        :Error - mandatory field;
+        detach
+      else ([yes])
+      endif
+    endif
+    :Select priority: Low / Medium / High;
+    :Enter due date (YYYY/MM/DD);
+    if (Date valid (not in the past)?) then ([yes])
+      :Auto-assign to user's domain;
+      :Generate unique task ID;
+      :Set status: "New";
+      :Immediately save to local file;
+      :Display confirmation + task ID;
+    else ([no])
+      :Validation error - invalid date;
+      detach
+    endif
+  }
+
+fork again
+
+  partition "Process 3: Task Lifecycle Management" {
+    :Select task from task list;
+    :Display task details and action menu;
+    if (Action = Edit?) then ([yes])
+      if (Status = "Done"?) then ([yes])
+        :Error - cannot edit closed task;
+        detach
+      else ([no])
+        :Edit title / description / priority;
+        :Auto-save to file;
+        :Display save confirmation;
+      endif
+    else ([no])
+      if (Action = Update Status?) then ([yes])
+        if (Current status = "New"?) then ([yes])
+          :Change status to "In Progress";
+        else ([no - "In Progress"])
+          :Change status to "Done";
+          :Record close timestamp;
+        endif
+        :Save to file;
+      else ([no - Delete])
+        :Display Confirmation Dialog;
+        if (User confirms deletion?) then ([yes])
+          :Delete task from data store;
+          :Immediately save to file;
+        else ([no])
+          :Cancel - return to list;
+          detach
+        endif
+      endif
+    endif
+    :Return to task list;
+  }
+
+end fork
+
+stop
+@enduml

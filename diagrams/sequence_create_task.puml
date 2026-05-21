@@ -1,0 +1,77 @@
+@startuml Sequence_CreateTask
+title UC2: יצירת משימה / באג
+
+skinparam SequenceArrowThickness 2
+skinparam ParticipantBackgroundColor #f0fff0
+skinparam ParticipantBorderColor #336633
+
+actor "משתמש" as User
+participant "UIController" as UI
+participant "Validator" as Val
+participant "TaskService" as TaskSvc
+participant "TaskRepository" as Repo
+database "Local Data File\n(tasks.json)" as DB
+
+User -> UI: בחירת "יצירת משימה חדשה"
+activate UI
+UI --> User: הצגת טופס יצירה
+
+User -> UI: שליחת פרטים:\nכותרת, תיאור, סוג, דחיפות, תאריך יעד
+
+UI -> Val: validateTitle(title)
+activate Val
+Val --> UI: תקין / שגיאה (> 50 תווים)
+deactivate Val
+
+UI -> Val: validateDueDate(dueDate)
+activate Val
+Val --> UI: תקין / שגיאה (תאריך עבר)
+deactivate Val
+
+alt ולידציה נכשלה
+  UI --> User: הצגת הודעת שגיאה ספציפית
+
+else ולידציה עברה
+  alt סוג = באג
+    UI --> User: בקשת הזנת צעדי שחזור (חובה)
+    User -> UI: הזנת stepsToReproduce
+  end
+
+  UI -> TaskSvc: createTask(title, desc, type, priority, dueDate, user)
+  activate TaskSvc
+  TaskSvc -> TaskSvc: generateUniqueId()
+  TaskSvc -> TaskSvc: setDomain(user.domain)
+  TaskSvc -> TaskSvc: setStatus(NEW)
+
+  TaskSvc -> Repo: save(task)
+  activate Repo
+  Repo -> DB: write(taskData)
+  activate DB
+
+  alt שגיאת כתיבה לקובץ
+    DB --> Repo: IOException
+    deactivate DB
+    Repo -> DB: retry (attempt 2/3)
+    activate DB
+    DB --> Repo: IOException
+    deactivate DB
+    Repo --> TaskSvc: SaveException
+    deactivate Repo
+    TaskSvc --> UI: SaveException
+    deactivate TaskSvc
+    UI --> User: שגיאה - לא ניתן לשמור, נא לנסות שוב
+
+  else שמירה הצליחה
+    DB --> Repo: success
+    deactivate DB
+    Repo --> TaskSvc: task saved
+    deactivate Repo
+    TaskSvc --> UI: task (with id)
+    deactivate TaskSvc
+    UI --> User: משימה נוצרה בהצלחה + מזהה: {id}
+  end
+end
+
+deactivate UI
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml Activity_Registration_Login_EN
+title Registration and Login Process
+
+skinparam ActivityBackgroundColor #f0f8ff
+skinparam ActivityBorderColor #336699
+skinparam ArrowColor #336699
+
+start
+
+:Display main menu: Login / Register;
+
+if (New user?) then (yes)
+  :Enter username, password and professional domain;
+  if (Unique username\nand password >= 8 chars?) then (valid)
+    :Hash password;
+    :Create user account;
+    :Save to local file;
+    :Display success message;
+  else (invalid)
+    :Display error message;
+    stop
+  endif
+else (no - existing user)
+  :Enter username and password;
+  :Validate against local data store;
+  if (Credentials valid?) then (yes)
+    :Reset failed attempts counter;
+    :Load user session;
+    :Load tasks by professional domain;
+    :Display task list + dashboard;
+    stop
+  else (no)
+    :Increment failed attempts counter;
+    if (3 failed attempts?) then (yes)
+      :Lock account for 15 minutes;
+      :Display lockout message;
+      stop
+    else (no)
+      :Display error message;
+      :Return to login form;
+    endif
+  endif
+endif
+
+stop
+@enduml

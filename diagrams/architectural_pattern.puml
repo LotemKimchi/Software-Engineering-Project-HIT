@@ -1,0 +1,68 @@
+@startuml ArchitecturalPattern_Layered
+title TaskMaster Pro - Layered Architecture Pattern
+
+skinparam PackageBackgroundColor #f8f8ff
+skinparam PackageBorderColor #336699
+skinparam ArrowColor #336699
+skinparam ComponentBackgroundColor #ffffff
+
+package "שכבת ממשק המשתמש\n(Presentation Layer)" #D0E8FF {
+  component [UIController] as UI
+  component [Session] as Sess
+}
+
+package "שכבת לוגיקה עסקית\n(Business Logic Layer)" #D0FFD8 {
+  component [AuthService] as Auth
+  component [TaskService] as TaskSvc
+  component [DashboardService] as Dash
+  component [ReportExporter] as Report
+  component [Validator] as Valid
+  component [SearchFilter] as SF
+}
+
+package "שכבת גישה לנתונים\n(Data Access Layer)" #FFE8CC {
+  component [UserRepository] as UserRepo
+  component [TaskRepository] as TaskRepo
+}
+
+package "שכבת אחסון\n(Storage Layer)" #FFD0D0 {
+  component [FileStorage] as FS
+  database "קובץ נתונים מקומי\n(Local Data File)" as DataFile
+}
+
+' Layer connections (top-down)
+UI --> Auth
+UI --> TaskSvc
+UI --> Dash
+UI ..> Sess
+
+Auth --> UserRepo
+Auth --> Valid
+TaskSvc --> TaskRepo
+TaskSvc --> Valid
+TaskSvc --> SF
+Dash --> TaskRepo
+Report --> TaskRepo
+
+UserRepo --> FS
+TaskRepo --> FS
+FS --> DataFile
+
+note right of UI
+  מציג תפריטים ממוספרים,
+  מקבל קלט, מציג שגיאות
+  בפורמט אחיד
+end note
+
+note right of TaskSvc
+  מממש את כל כללי העסק:
+  מחזור חיים, ולידציה,
+  שיוך תחום, ID אוטומטי
+end note
+
+note right of FS
+  כתיבה מיידית לאחר כל פעולה.
+  כולל מנגנון Retry בשגיאת כתיבה
+end note
+
+@enduml

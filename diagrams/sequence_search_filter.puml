@@ -1,0 +1,85 @@
+@startuml Sequence_SearchFilter
+title UC3: חיפוש וסינון משימות
+
+skinparam SequenceArrowThickness 2
+skinparam ParticipantBackgroundColor #fff8f0
+skinparam ParticipantBorderColor #996633
+
+actor "משתמש" as User
+participant "UIController" as UI
+participant "TaskService" as TaskSvc
+participant "TaskRepository" as Repo
+database "Local Data File\n(tasks.json)" as DB
+participant "SearchFilter" as SF
+
+User -> UI: בחירת פעולת חיפוש / סינון / מיון
+activate UI
+
+alt חיפוש טקסטואלי
+  User -> UI: הזנת מחרוזת חיפוש
+  UI -> TaskSvc: searchTasks(query, domain)
+  activate TaskSvc
+  TaskSvc -> Repo: findByDomain(domain)
+  activate Repo
+  Repo -> DB: read(domain)
+  activate DB
+  DB --> Repo: List<Task>
+  deactivate DB
+  Repo --> TaskSvc: List<Task>
+  deactivate Repo
+  TaskSvc -> SF: filterByText(tasks, query)
+  activate SF
+  SF -> SF: בדיקת התאמה בכותרת ובתיאור
+  SF --> TaskSvc: List<Task> מסונן
+  deactivate SF
+  TaskSvc --> UI: תוצאות חיפוש
+  deactivate TaskSvc
+
+else סינון לפי סטטוס "בטיפול"
+  User -> UI: בחירת סינון "בטיפול"
+  UI -> TaskSvc: filterByStatus(IN_PROGRESS, domain)
+  activate TaskSvc
+  TaskSvc -> Repo: findByDomain(domain)
+  activate Repo
+  Repo -> DB: read(domain)
+  activate DB
+  DB --> Repo: List<Task>
+  deactivate DB
+  Repo --> TaskSvc: List<Task>
+  deactivate Repo
+  TaskSvc -> SF: filterByStatus(tasks, IN_PROGRESS)
+  activate SF
+  SF --> TaskSvc: List<Task> עם סטטוס "בטיפול" בלבד
+  deactivate SF
+  TaskSvc --> UI: רשימה מסוננת
+  deactivate TaskSvc
+
+else מיון לפי תאריך יעד
+  User -> UI: בחירת מיון כרונולוגי
+  UI -> TaskSvc: sortByDueDate(domain)
+  activate TaskSvc
+  TaskSvc -> Repo: findByDomain(domain)
+  activate Repo
+  Repo -> DB: read(domain)
+  activate DB
+  DB --> Repo: List<Task>
+  deactivate DB
+  Repo --> TaskSvc: List<Task>
+  deactivate Repo
+  TaskSvc -> SF: sortAscendingByDueDate(tasks)
+  activate SF
+  SF --> TaskSvc: List<Task> ממוין
+  deactivate SF
+  TaskSvc --> UI: רשימה ממוינת
+  deactivate TaskSvc
+end
+
+alt לא נמצאו תוצאות
+  UI --> User: הצגת הודעה - לא נמצאו משימות
+else נמצאו תוצאות
+  UI --> User: הצגת הרשימה הממוינת/מסוננת\n(ממוינת לפי דחיפות כברירת מחדל)
+end
+
+deactivate UI
+
+@enduml

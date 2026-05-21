@@ -1,0 +1,69 @@
+@startuml ArchitecturalPattern_Layered_EN
+title TaskMaster Pro - Layered Architecture Pattern
+
+skinparam PackageBackgroundColor #f8f8ff
+skinparam PackageBorderColor #336699
+skinparam ArrowColor #336699
+skinparam ComponentBackgroundColor #ffffff
+
+package "Presentation Layer\n(UI Layer)" #D0E8FF {
+  component [UIController] as UI
+  component [Session] as Sess
+}
+
+package "Business Logic Layer\n(Service Layer)" #D0FFD8 {
+  component [AuthService] as Auth
+  component [TaskService] as TaskSvc
+  component [DashboardService] as Dash
+  component [ReportExporter] as Report
+  component [Validator] as Valid
+  component [SearchFilter] as SF
+}
+
+package "Data Access Layer\n(Repository Layer)" #FFE8CC {
+  component [UserRepository] as UserRepo
+  component [TaskRepository] as TaskRepo
+}
+
+package "Storage Layer" #FFD0D0 {
+  component [FileStorage] as FS
+  database "Local Data File\n(JSON / TXT)" as DataFile
+}
+
+' Layer connections (top-down only - Layered Architecture rule)
+UI --> Auth
+UI --> TaskSvc
+UI --> Dash
+UI ..> Sess
+
+Auth --> UserRepo
+Auth --> Valid
+TaskSvc --> TaskRepo
+TaskSvc --> Valid
+TaskSvc --> SF
+Dash --> TaskRepo
+Report --> TaskRepo
+
+UserRepo --> FS
+TaskRepo --> FS
+FS --> DataFile
+
+note right of UI
+  Displays numbered menus,
+  accepts input, shows errors
+  in a consistent format
+end note
+
+note right of TaskSvc
+  Implements all business rules:
+  lifecycle, validation,
+  domain assignment, auto ID
+end note
+
+note right of FS
+  Writes immediately after every
+  create/update/delete action.
+  Includes Retry on write failure.
+end note
+
+@enduml

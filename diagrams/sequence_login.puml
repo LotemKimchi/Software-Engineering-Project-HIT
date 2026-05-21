@@ -1,0 +1,74 @@
+@startuml Sequence_Login
+title UC1: התחברות משתמש למערכת
+
+skinparam SequenceArrowThickness 2
+skinparam ParticipantBackgroundColor #e8f4f8
+skinparam ParticipantBorderColor #336699
+
+actor "משתמש" as User
+participant "UIController" as UI
+participant "AuthService" as Auth
+participant "UserRepository" as Repo
+database "Local Data File\n(users.json)" as DB
+participant "Session" as Session
+
+User -> UI: הזנת שם משתמש וסיסמה
+activate UI
+
+UI -> Auth: authenticate(username, password)
+activate Auth
+
+Auth -> Repo: findByUsername(username)
+activate Repo
+
+Repo -> DB: read(username)
+activate DB
+DB --> Repo: User record / null
+deactivate DB
+
+Repo --> Auth: User / null
+deactivate Repo
+
+alt משתמש לא נמצא
+  Auth --> UI: AuthResult.USER_NOT_FOUND
+  UI --> User: הצגת שגיאה - משתמש לא קיים
+
+else משתמש נמצא
+  Auth -> Auth: verifyPassword(input, storedHash)
+
+  alt סיסמה שגויה
+    Auth -> Auth: incrementFailedAttempts()
+
+    alt מספר ניסיונות >= 3
+      Auth -> Repo: lockAccount(username, 15min)
+      activate Repo
+      Repo -> DB: update(lockedUntil)
+      activate DB
+      DB --> Repo: confirmed
+      deactivate DB
+      Repo --> Auth: confirmed
+      deactivate Repo
+      Auth --> UI: AuthResult.ACCOUNT_LOCKED
+      UI --> User: חשבון חסום ל-15 דקות
+
+    else ניסיונות < 3
+      Auth --> UI: AuthResult.WRONG_PASSWORD
+      UI --> User: שגיאה - פרטים שגויים, נותרו X ניסיונות
+    end
+
+  else סיסמה נכונה
+    Auth -> Auth: resetFailedAttempts()
+    Auth -> Session: createSession(user)
+    activate Session
+    Session --> Auth: session created
+    deactivate Session
+    Auth --> UI: AuthResult.SUCCESS
+    deactivate Auth
+    UI -> UI: loadTasksByDomain(user.domain)
+    UI --> User: הצגת רשימת משימות + דשבורד
+  end
+end
+
+deactivate UI
+
+@enduml
